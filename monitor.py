@@ -6,11 +6,6 @@ from bs4 import BeautifulSoup
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-# =========================================================
-# A SUA LISTA DE CAÇA (SNIPER)
-# preco_min: Evita capas, cabos e acessórios baratos
-# preco_max: O teto máximo que define a oferta como "Imperdível/Bug"
-# =========================================================
 ALVOS_SNIPER = [
     # --- Smartphones ---
     {"termo": "iPhone 15", "preco_min": 800.0, "preco_max": 3800.0},
@@ -40,7 +35,6 @@ ALVOS_SNIPER = [
     {"termo": "Mouse Sem Fio Leve", "preco_min": 30.0, "preco_max": 150.0}
 ]
 
-# Canais focados em Bugs e Importações (AliExpress, Shopee, Kabum, Tera, Pichau, etc.)
 CANAIS_BUGS = [
     "bugspromocoes",
     "ofertasdebugs",
@@ -66,7 +60,6 @@ def notificar_telegram(titulo, preco, link, origem):
     )
 
     try:
-        # Dispara exatamente 3 vezes para bugs, com pausa curta
         for _ in range(3):
             requests.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
@@ -81,7 +74,7 @@ def notificar_telegram(titulo, preco, link, origem):
     ITENS_ENVIADOS.add(assinatura)
 
 # =========================================================
-# 1. MERCADO LIVRE API (Direto, sem Cloudflare)
+# 1. MERCADO LIVRE API
 # =========================================================
 def sniper_mercadolivre():
     print("=== SNIPER API MERCADO LIVRE ===")
@@ -91,17 +84,16 @@ def sniper_mercadolivre():
         p_min = alvo["preco_min"]
         p_max = alvo["preco_max"]
         
-        # Pesquisa itens novos
         url = f"https://api.mercadolibre.com/sites/MLB/search?q={termo}&condition=new&limit=20"
         try:
             data = requests.get(url, timeout=10).json()
             resultados = data.get("results", [])
+            print(f"[*] Varrendo Mercado Livre por '{termo}': {len(resultados)} anúncios analisados.")
             
             for item in resultados:
                 preco_atual = float(item.get("price", 0))
                 titulo = item.get("title", "")
                 
-                # Validação Sniper: Preço no intervalo de bug e nome contém a palavra-chave
                 if p_min <= preco_atual <= p_max:
                     palavras_chave = termo.lower().split()
                     if all(palavra in titulo.lower() for palavra in palavras_chave):
@@ -112,11 +104,10 @@ def sniper_mercadolivre():
             print(f"[ERRO] Falha ao procurar {termo} no ML: {e}")
 
 # =========================================================
-# 2. TELEGRAM WEB (Rastreia Ali, Shopee, Shein, TikTok, Kabum, etc)
+# 2. TELEGRAM WEB
 # =========================================================
 def extrair_preco(texto):
     import re
-    # Procura valores em R$ no texto da mensagem
     valores = re.findall(r"R\$\s*([\d\.,]+)", texto)
     if valores:
         limpo = valores[0].replace(".", "").replace(",", ".")
@@ -138,7 +129,8 @@ def sniper_canais_telegram():
                 soup = BeautifulSoup(resposta.text, 'html.parser')
                 mensagens = soup.find_all('div', class_='tgme_widget_message_text')
                 
-                # Analisa as últimas 8 mensagens publicadas
+                print(f"[*] Varrendo canal @{canal}: {len(mensagens)} mensagens recentes carregadas.")
+                
                 for msg_html in reversed(mensagens[-8:]):
                     texto_msg = msg_html.get_text(separator=" ", strip=True)
                     texto_minusculo = texto_msg.lower()
@@ -149,7 +141,6 @@ def sniper_canais_telegram():
                         if termo_lower in texto_minusculo:
                             preco_encontrado = extrair_preco(texto_msg)
                             
-                            # Se encontrou preço e está no alvo, ou se não achou preço mas a palavra "bug" está junto
                             if (alvo["preco_min"] <= preco_encontrado <= alvo["preco_max"]) or (preco_encontrado == 0.0 and "bug" in texto_minusculo):
                                 link_tag = msg_html.find('a', href=True)
                                 link_oferta = link_tag['href'] if link_tag else f"https://t.me/s/{canal}"
@@ -158,7 +149,7 @@ def sniper_canais_telegram():
                                 notificar_telegram(titulo, preco_encontrado, link_oferta, f"Alerta Comunidade (@{canal})")
                                 break 
             else:
-                print(f"    -> Erro ao aceder ao Telegram (Status {resposta.status_code})")
+                print(f"    -> Erro ao aceder ao canal @{canal} (Status {resposta.status_code})")
         except Exception as e:
             print(f"    -> Falha ao processar canal @{canal}: {e}")
 
@@ -166,4 +157,4 @@ if __name__ == "__main__":
     print("=== INICIANDO SNIPER DE BUGS MULTI-LOJAS ===")
     sniper_mercadolivre()
     sniper_canais_telegram()
-    print("=== VARREDURA FINALIZADA ===")
+    print("\n=== VARREDURA FINALIZADA ===")
