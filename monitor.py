@@ -1,151 +1,169 @@
 import os
 import time
 import requests
-import re
 from bs4 import BeautifulSoup
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-MIN_DISCOUNT_PERCENT = 50.0
-
-LOJAS_ALVO = [
-    "kabum", "terabyte", "pichau", "nike", "adidas", 
-    "centauro", "netshoes", "aliexpress", "shein", "amazon", "mercado livre"
+# =========================================================
+# A SUA LISTA DE CAÇA (SNIPER)
+# preco_min: Evita capas, cabos e acessórios baratos
+# preco_max: O teto máximo que define a oferta como "Imperdível/Bug"
+# =========================================================
+ALVOS_SNIPER = [
+    # --- Smartphones ---
+    {"termo": "iPhone 15", "preco_min": 800.0, "preco_max": 3800.0},
+    {"termo": "iPhone 14", "preco_min": 800.0, "preco_max": 2800.0},
+    {"termo": "iPhone 13", "preco_min": 800.0, "preco_max": 2200.0},
+    {"termo": "Galaxy S26", "preco_min": 1000.0, "preco_max": 4000.0},
+    {"termo": "Galaxy S25", "preco_min": 1000.0, "preco_max": 3500.0},
+    {"termo": "Galaxy S24", "preco_min": 1000.0, "preco_max": 2800.0},
+    
+    # --- Consoles ---
+    {"termo": "Playstation 5", "preco_min": 300.0, "preco_max": 2800.0},
+    {"termo": "PS5", "preco_min": 300.0, "preco_max": 2800.0},
+    {"termo": "Xbox Series X", "preco_min": 300.0, "preco_max": 2900.0},
+    {"termo": "Xbox Series S", "preco_min": 200.0, "preco_max": 1400.0},
+    
+    # --- Sim Racing & Hardware Especializado ---
+    {"termo": "Volante Moza", "preco_min": 400.0, "preco_max": 2500.0},
+    {"termo": "Moza R5", "preco_min": 400.0, "preco_max": 2500.0},
+    {"termo": "Volante Fanatec", "preco_min": 400.0, "preco_max": 2800.0},
+    
+    # --- Hardware PC (High-End) ---
+    {"termo": "Ryzen 7 5700X3D", "preco_min": 150.0, "preco_max": 900.0},
+    {"termo": "RTX 4070", "preco_min": 400.0, "preco_max": 3000.0},
+    {"termo": "RTX 4060", "preco_min": 300.0, "preco_max": 1350.0},
+    {"termo": "Water Cooler 360mm", "preco_min": 80.0, "preco_max": 300.0},
+    {"termo": "Teclado Magnético", "preco_min": 50.0, "preco_max": 250.0},
+    {"termo": "Mouse Sem Fio Leve", "preco_min": 30.0, "preco_max": 150.0}
 ]
 
-PALAVRAS_BUG = ["bug", "erro", "absurdo", "imperdível", "80%", "90%", "surreal", "corra", "despenca"]
-
-# Canais públicos do Telegram que agregam as melhores promoções
-CANAIS_TELEGRAM = [
-    "pelando",
-    "gatry_oficial",
-    "promobit"
+# Canais focados em Bugs e Importações (AliExpress, Shopee, Kabum, Tera, Pichau, etc.)
+CANAIS_BUGS = [
+    "bugspromocoes",
+    "ofertasdebugs",
+    "promobugsbr",
+    "promocoesaliexpress",
+    "shopeebugs",
+    "hardmob_promo"
 ]
 
-# Registo simples para não enviar a mesma promoção duas vezes na mesma hora
 ITENS_ENVIADOS = set()
 
-def notificar_telegram(titulo, link, origem, e_bug=False, desconto=0.0):
-    assinatura = f"{titulo}-{origem}"
+def notificar_telegram(titulo, preco, link, origem):
+    assinatura = f"{titulo}-{preco}"
     if assinatura in ITENS_ENVIADOS:
         return
     
-    if e_bug or desconto >= 80.0:
-        header = "🚨🔥 *BUG / PROMOÇÃO EXTREMA DETETADA!* 🔥🚨"
-        repeat_count = 3
-    else:
-        header = "⚡ *OFERTA FORTE ENCONTRADA* ⚡"
-        repeat_count = 1
-
     msg = (
-        f"{header}\n\n"
+        f"🚨🔥 *BUG SNIPER DETETADO!* 🔥🚨\n\n"
         f"🌐 *Origem:* {origem}\n"
         f"📦 *Item:* {titulo[:85]}...\n"
+        f"💰 *Preço:* *R$ {preco:.2f}*\n\n"
+        f"⚡ [COMPRAR URGENTE]({link})"
     )
-    
-    if desconto > 0:
-        msg += f"💥 *Desconto:* *{desconto:.1f}% OFF*\n\n"
-    else:
-        msg += "\n"
-        
-    msg += f"🔗 [VER DETALHES]({link})"
 
-    for i in range(repeat_count):
-        try:
+    try:
+        # Dispara exatamente 3 vezes para bugs, com pausa curta
+        for _ in range(3):
             requests.post(
                 f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage",
                 json={"chat_id": TELEGRAM_CHAT_ID, "text": msg, "parse_mode": "Markdown"},
                 timeout=10
             )
-            print(f"   -> [ALERTA {i+1}/{repeat_count}] {titulo[:40]}...")
-            if repeat_count > 1:
-                time.sleep(1.5)
-        except Exception as e:
-            print(f"Erro ao notificar o Telegram: {e}")
-            
+            time.sleep(1)
+        print(f"   -> [BUG ENCONTRADO!] {titulo[:40]} por R$ {preco}")
+    except Exception as e:
+        print(f"Erro ao notificar o Telegram: {e}")
+        
     ITENS_ENVIADOS.add(assinatura)
 
 # =========================================================
-# 1. API DIRETA (MERCADO LIVRE) - Query Corrigida
+# 1. MERCADO LIVRE API (Direto, sem Cloudflare)
 # =========================================================
-def scan_mercadolivre_api():
-    print("=== A INICIAR RASTREIO DIRETO (MERCADO LIVRE) ===")
-    # Alterado para pesquisar itens específicos onde os descontos são declarados
-    termos = ["hardware", "tênis", "smartphone"]
-    max_disc = 0.0
-    total_analisados = 0
+def sniper_mercadolivre():
+    print("=== SNIPER API MERCADO LIVRE ===")
     
-    for termo in termos:
-        url = f"https://api.mercadolibre.com/sites/MLB/search?q={termo}&limit=20"
+    for alvo in ALVOS_SNIPER:
+        termo = alvo["termo"]
+        p_min = alvo["preco_min"]
+        p_max = alvo["preco_max"]
+        
+        # Pesquisa itens novos
+        url = f"https://api.mercadolibre.com/sites/MLB/search?q={termo}&condition=new&limit=20"
         try:
             data = requests.get(url, timeout=10).json()
-            results = data.get("results", [])
-            total_analisados += len(results)
+            resultados = data.get("results", [])
             
-            for item in results:
-                orig = item.get("original_price")
-                curr = item.get("price")
-                if orig and curr and orig > curr:
-                    disc = ((orig - curr) / orig) * 100
-                    if disc > max_disc: max_disc = disc
-                    if disc >= MIN_DISCOUNT_PERCENT:
-                        notificar_telegram(item.get("title", "Produto ML"), item.get("permalink", ""), "Mercado Livre", False, disc)
+            for item in resultados:
+                preco_atual = float(item.get("price", 0))
+                titulo = item.get("title", "")
+                
+                # Validação Sniper: Preço no intervalo de bug e nome contém a palavra-chave
+                if p_min <= preco_atual <= p_max:
+                    palavras_chave = termo.lower().split()
+                    if all(palavra in titulo.lower() for palavra in palavras_chave):
+                        link = item.get("permalink", "")
+                        notificar_telegram(titulo, preco_atual, link, "Mercado Livre")
+                        
         except Exception as e:
-            print(f"[MERCADO LIVRE] Erro na API para o termo {termo}: {e}")
-            
-    print(f"[MERCADO LIVRE] Analisados: {total_analisados} itens | Maior desconto: {max_disc:.1f}%")
+            print(f"[ERRO] Falha ao procurar {termo} no ML: {e}")
 
 # =========================================================
-# 2. RASPAGEM DE CANAIS PÚBLICOS DO TELEGRAM (IMUNE AO CLOUDFLARE)
+# 2. TELEGRAM WEB (Rastreia Ali, Shopee, Shein, TikTok, Kabum, etc)
 # =========================================================
-def scan_telegram_channels():
-    print("\n=== A INICIAR CAÇADOR DE BUGS (VIA TELEGRAM WEB) ===")
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-    }
+def extrair_preco(texto):
+    import re
+    # Procura valores em R$ no texto da mensagem
+    valores = re.findall(r"R\$\s*([\d\.,]+)", texto)
+    if valores:
+        limpo = valores[0].replace(".", "").replace(",", ".")
+        try:
+            return float(limpo)
+        except:
+            return 0.0
+    return 0.0
 
-    for canal in CANAIS_TELEGRAM:
-        print(f"\n[*] A varrer canal: @{canal}...")
+def sniper_canais_telegram():
+    print("\n=== SNIPER CANAIS DE BUGS (AGREGADORES) ===")
+    headers = {"User-Agent": "Mozilla/5.0"}
+
+    for canal in CANAIS_BUGS:
         url = f"https://t.me/s/{canal}"
         try:
             resposta = requests.get(url, headers=headers, timeout=15)
             if resposta.status_code == 200:
                 soup = BeautifulSoup(resposta.text, 'html.parser')
-                # A classe 'tgme_widget_message_text' contém o texto da mensagem no Telegram Web
                 mensagens = soup.find_all('div', class_='tgme_widget_message_text')
-                itens_analisados = 0
                 
-                # Inverte para ler as mais recentes primeiro
-                for msg_html in reversed(mensagens[-15:]):
-                    itens_analisados += 1
+                # Analisa as últimas 8 mensagens publicadas
+                for msg_html in reversed(mensagens[-8:]):
                     texto_msg = msg_html.get_text(separator=" ", strip=True)
                     texto_minusculo = texto_msg.lower()
                     
-                    loja_encontrada = any(loja in texto_minusculo for loja in LOJAS_ALVO)
-                    
-                    if loja_encontrada:
-                        e_bug = any(palavra in texto_minusculo for palavra in PALAVRAS_BUG)
+                    for alvo in ALVOS_SNIPER:
+                        termo_lower = alvo["termo"].lower()
                         
-                        # Tenta encontrar o link na mensagem
-                        link_tag = msg_html.find('a', href=True)
-                        link_oferta = link_tag['href'] if link_tag else f"https://t.me/s/{canal}"
-                        
-                        # Limpa o texto para o título (pega apenas a primeira frase)
-                        titulo = texto_msg.split('R$')[0].split('http')[0].strip()
-                        if len(titulo) < 10:
-                            titulo = texto_msg[:80]
+                        if termo_lower in texto_minusculo:
+                            preco_encontrado = extrair_preco(texto_msg)
                             
-                        notificar_telegram(titulo, link_oferta, f"Telegram @{canal}", e_bug)
-                        
-                print(f"    -> {itens_analisados} mensagens recentes analisadas.")
+                            # Se encontrou preço e está no alvo, ou se não achou preço mas a palavra "bug" está junto
+                            if (alvo["preco_min"] <= preco_encontrado <= alvo["preco_max"]) or (preco_encontrado == 0.0 and "bug" in texto_minusculo):
+                                link_tag = msg_html.find('a', href=True)
+                                link_oferta = link_tag['href'] if link_tag else f"https://t.me/s/{canal}"
+                                
+                                titulo = texto_msg.split('http')[0].strip()[:80]
+                                notificar_telegram(titulo, preco_encontrado, link_oferta, f"Alerta Comunidade (@{canal})")
+                                break 
             else:
                 print(f"    -> Erro ao aceder ao Telegram (Status {resposta.status_code})")
         except Exception as e:
             print(f"    -> Falha ao processar canal @{canal}: {e}")
 
-    print("\n=== VARREDURA TOTAL FINALIZADA ===")
-
 if __name__ == "__main__":
-    scan_mercadolivre_api()
-    scan_telegram_channels()
+    print("=== INICIANDO SNIPER DE BUGS MULTI-LOJAS ===")
+    sniper_mercadolivre()
+    sniper_canais_telegram()
+    print("=== VARREDURA FINALIZADA ===")
