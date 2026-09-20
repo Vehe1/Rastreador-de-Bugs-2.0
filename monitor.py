@@ -15,7 +15,7 @@ ALVOS_SNIPER = [
     {"termo": "Galaxy S25", "preco_min": 1000.0, "preco_max": 3500.0},
     {"termo": "Galaxy S24", "preco_min": 1000.0, "preco_max": 2800.0},
     
-    # --- Consoles ---
+    # --- Consolas ---
     {"termo": "Playstation 5", "preco_min": 300.0, "preco_max": 2800.0},
     {"termo": "PS5", "preco_min": 300.0, "preco_max": 2800.0},
     {"termo": "Xbox Series X", "preco_min": 300.0, "preco_max": 2900.0},
@@ -26,13 +26,36 @@ ALVOS_SNIPER = [
     {"termo": "Moza R5", "preco_min": 400.0, "preco_max": 2500.0},
     {"termo": "Volante Fanatec", "preco_min": 400.0, "preco_max": 2800.0},
     
-    # --- Hardware PC (High-End) ---
+    # --- Processadores AMD (Séries 5000, 7000 e 9000) ---
+    {"termo": "Ryzen 5 5600", "preco_min": 100.0, "preco_max": 500.0},
     {"termo": "Ryzen 7 5700X3D", "preco_min": 150.0, "preco_max": 900.0},
-    {"termo": "RTX 4070", "preco_min": 400.0, "preco_max": 3000.0},
+    {"termo": "Ryzen 9 5900X", "preco_min": 300.0, "preco_max": 1300.0},
+    {"termo": "Ryzen 7 7800X3D", "preco_min": 500.0, "preco_max": 2000.0},
+    {"termo": "Ryzen 5 9600X", "preco_min": 400.0, "preco_max": 1200.0},
+    {"termo": "Ryzen 7 9700X", "preco_min": 600.0, "preco_max": 1700.0},
+    {"termo": "Ryzen 9 9900X", "preco_min": 800.0, "preco_max": 2200.0},
+    {"termo": "Ryzen 9 9950X", "preco_min": 1000.0, "preco_max": 3200.0},
+
+    # --- PLACAS DE VÍDEO (NVIDIA) ---
+    {"termo": "RTX 4090", "preco_min": 2000.0, "preco_max": 8000.0},
+    {"termo": "RTX 4080", "preco_min": 1500.0, "preco_max": 5000.0},
+    {"termo": "RTX 4070 Ti", "preco_min": 1000.0, "preco_max": 3800.0},
+    {"termo": "RTX 4070", "preco_min": 800.0, "preco_max": 3000.0},
+    {"termo": "RTX 4060 Ti", "preco_min": 500.0, "preco_max": 1800.0},
     {"termo": "RTX 4060", "preco_min": 300.0, "preco_max": 1350.0},
-    {"termo": "Water Cooler 360mm", "preco_min": 80.0, "preco_max": 300.0},
+    {"termo": "RTX 3060", "preco_min": 200.0, "preco_max": 900.0},
+
+    # --- PLACAS DE VÍDEO (AMD) ---
+    {"termo": "RX 7900 XTX", "preco_min": 1500.0, "preco_max": 4500.0},
+    {"termo": "RX 7800 XT", "preco_min": 800.0, "preco_max": 2800.0},
+    {"termo": "RX 7700 XT", "preco_min": 500.0, "preco_max": 2000.0},
+    {"termo": "RX 7600", "preco_min": 300.0, "preco_max": 1200.0},
+    {"termo": "RX 6700 XT", "preco_min": 300.0, "preco_max": 1300.0},
+
+    # --- Periféricos High-End ---
     {"termo": "Teclado Magnético", "preco_min": 50.0, "preco_max": 250.0},
-    {"termo": "Mouse Sem Fio Leve", "preco_min": 30.0, "preco_max": 150.0}
+    {"termo": "Mouse Sem Fio", "preco_min": 30.0, "preco_max": 150.0},
+    {"termo": "Water Cooler 360mm", "preco_min": 80.0, "preco_max": 300.0}
 ]
 
 CANAIS_BUGS = [
